@@ -6,6 +6,7 @@
 #include <iostream>
 #include "Macros.h"
 #include "Player.h"
+#include "SpriteSheet.h"
 
 class Game{
     private:
@@ -27,9 +28,12 @@ class Game{
         int frame_count = 0;
         int fps = 0;
         Uint32 last_time = SDL_GetTicks();
-
+        
+        SpriteSheet *DirtTiles = new SpriteSheet(loadTexture("./assets/images/tileset-dirt.png",renderer),16,16,16);
+        SpriteSheet *GrassTiles = new SpriteSheet(loadTexture("./assets/images/tileset-grass.png",renderer),16,16,16);
+        SpriteSheet *StoneTiles = new SpriteSheet(loadTexture("./assets/images/tileset-stone.png",renderer),16,16,16);
         void draw(){
-            SDL_SetRenderDrawColor(renderer,0,0,0,255);
+            SDL_SetRenderDrawColor(renderer,255,200,200,255);
             SDL_RenderClear(renderer);
             draw_world();
             plr->draw();
@@ -66,18 +70,59 @@ class Game{
                             SDL_Rect tile_rect = {chunk_rect.x+x1*tile_size,chunk_rect.y+y1*tile_size,tile_size,tile_size};
                             if(inside_cam(tile_rect)){
                                 if(Chunk[x1][y1] != BLOCKS_ID.VOID){
-                                    switch(Chunk[x1][y1]){
-                                        case BLOCKS_ID.GRASS:
-                                            SDL_SetRenderDrawColor(renderer,75,150,0,255);
-                                            break;
-                                        case BLOCKS_ID.DIRT:
-                                            SDL_SetRenderDrawColor(renderer,150,75,0,255);
-                                            break;  
-                                        case BLOCKS_ID.STONE:
-                                            SDL_SetRenderDrawColor(renderer,100,100,100,255);
-                                            break;
+                                    int bitmask = 0;
+                                    // top
+                                    if (y1 > 0) {
+                                        if(Chunk[x1][y1 - 1] != -1){
+                                            bitmask |= 1;
+                                        }
+                                    }else if(y > 0){
+                                        if(world_grid[x][y-1][x1][chunk_hei-1] != -1){
+                                            bitmask |= 1;
+                                        }
+                                    }   
+                                    // right
+                                    if (x1 + 1 < chunk_wid) { 
+                                        if(Chunk[x1 + 1][y1] != BLOCKS_ID.VOID){
+                                            bitmask |= 2; 
+                                        }
+                                    }else if(x + 1 < world_wid){
+                                        if(world_grid[x+1][y][0][y1] != BLOCKS_ID.VOID){
+                                            bitmask |= 2; 
+                                        }
                                     }
-                                    SDL_RenderFillRect(renderer,&tile_rect);
+                                    // bottom
+                                    if (y1 + 1 < chunk_hei) {
+                                        if(Chunk[x1][y1 + 1] != BLOCKS_ID.VOID){ 
+                                            bitmask |= 4;
+                                        }
+                                    }else if(y+1 < world_hei){
+                                        if(world_grid[x][y+1][x1][0] != BLOCKS_ID.VOID){ 
+                                            bitmask |= 4;
+                                        }
+                                    }
+                                    // left
+                                    if (x1 > 0) {
+                                        if(Chunk[x1 - 1][y1] != BLOCKS_ID.VOID){ 
+                                            bitmask |= 8; 
+                                        }
+                                    }else if(x > 0){
+                                        if(world_grid[x - 1][y][chunk_wid-1][y1] != BLOCKS_ID.VOID){ 
+                                            bitmask |= 8; 
+                                        }
+                                    }
+                                    switch(Chunk[x1][y1]){
+                                        case BLOCKS_ID.DIRT:
+                                            DirtTiles->renderFrame(renderer,bitmask,tile_rect.x,tile_rect.y,tile_size,tile_size);
+                                            break;
+                                        case BLOCKS_ID.GRASS:   
+                                            GrassTiles->renderFrame(renderer,bitmask,tile_rect.x,tile_rect.y,tile_size,tile_size);
+                                            break;
+                                        case BLOCKS_ID.STONE:
+                                            StoneTiles->renderFrame(renderer,bitmask,tile_rect.x,tile_rect.y,tile_size,tile_size);
+                                            break;
+                                    }               
+                                    //TileSpriteSheet->renderFrame(renderer,bitmask,tile_rect.x,tile_rect.y,tile_size,tile_size);
                                 }
                             }
                         }
@@ -246,6 +291,9 @@ class Game{
         }
         void destroy(){
             delete plr;
+            delete DirtTiles;
+            delete GrassTiles;
+            delete StoneTiles;
             SDL_DestroyWindow(window);
             SDL_DestroyRenderer(renderer);
             SDL_Quit();

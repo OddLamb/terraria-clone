@@ -7,7 +7,7 @@
 
 class Player:Entity{
     public:
-        SDL_Rect rect = {0,0,tile_size*2,tile_size*3};
+        SDL_Rect rect = {0,0,tile_size,tile_size*2};
         int hspd = 0;
         int vspd = 0;
         int spd = 4;

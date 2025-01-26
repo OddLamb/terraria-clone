@@ -15,7 +15,7 @@ typedef std::vector<std::vector<chunk>> world;
 
 const int window_resolution[2] = {1024,640};
 
-const int tile_size = 12;
+const int tile_size = 32;
 
 const int chunk_wid = 64;
 const int chunk_hei = 64;
