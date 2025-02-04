@@ -282,11 +282,15 @@ class World{
                                         if(left_tile.id == BLOCKS_ID.VOID){ // if can go left
                                             left_tile = Block(BLOCKS_ID.WATER);
                                             left_tile.life = water_tile.life-2;
+                                        }else if(left_tile.id == BLOCKS_ID.WATER){
+                                            transfer_life(water_tile,left_tile);
                                         }
                                         if(right_tile.id == BLOCKS_ID.VOID){ // if can go right
                                             right_tile = Block(BLOCKS_ID.WATER);
                                             right_tile.life = water_tile.life-2;
-                                        }
+                                        }else if(right_tile.id == BLOCKS_ID.WATER){
+                                            transfer_life(water_tile,right_tile);
+                                        }    
                                     }
                                 }
                             }
