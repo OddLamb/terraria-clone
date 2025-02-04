@@ -36,7 +36,7 @@ public:
         }
     }
 
-    void renderFrame(SDL_Renderer* renderer, int frame, int x, int y, int wid, int hei) {
+    void renderFrame(SDL_Renderer* renderer, int frame, int x, int y, int wid, int hei,double angle = 0,SDL_RendererFlip flip = SDL_FLIP_NONE,int r = 255,int g = 255,int b = 255) {
         if (frame >= totalFrames) {
             return;
         }
@@ -53,7 +53,9 @@ public:
         dstRect.w = wid;
         dstRect.h = hei;
 
-        SDL_RenderCopy(renderer, texture, &srcRect, &dstRect);
+        SDL_SetTextureColorMod(texture, r, g, b);
+        SDL_RenderCopyEx(renderer, texture, &srcRect, &dstRect, angle, NULL, flip);
+        SDL_SetTextureColorMod(texture, 255, 255, 255); 
     }
     int getFrameWidth() const { return frameWidth; }
     int getFrameHeight() const { return frameHeight; }

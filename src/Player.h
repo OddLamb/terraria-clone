@@ -16,14 +16,24 @@ class Player:Entity{
         SDL_Event *event;
         int *mouse_x = 0;
         int *mouse_y = 0;
-        Player(int *_camx,int *_camy,world *_world_grid,SDL_Renderer *_renderer, const Uint8 *_keyboard_state,Uint32 *_mouse_state,int *_mouse_x, int *_mouse_y):
-        Entity(_camx,_camy,_world_grid,_renderer){
+        Player(int *_camx,int *_camy,World *_wld,SDL_Renderer *_renderer, const Uint8 *_keyboard_state,Uint32 *_mouse_state,int *_mouse_x, int *_mouse_y):
+        Entity(_camx,_camy,_wld,_renderer){
             keyboard_state = _keyboard_state;
             mouse_state = _mouse_state;
             mouse_x = _mouse_x;
             mouse_y = _mouse_y;
         }
         void handle_events(SDL_Event *event){
+            switch(event->type){
+                case SDL_MOUSEBUTTONDOWN:
+                    if(SDL_BUTTON(SDL_BUTTON_RIGHT)){
+                        std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,wld->grid);
+                        if((wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]].id == BLOCKS_ID.VOID){
+                            (wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]] = Block(BLOCKS_ID.WATER);
+                        }
+                    }
+                    break;
+            }
         }
         void draw(){
             SDL_SetRenderDrawColor(renderer,255,0,0,255);
@@ -32,18 +42,13 @@ class Player:Entity{
         }
         void update(){
             if((*mouse_state) & SDL_BUTTON(SDL_BUTTON_LEFT)){
-                std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,*world_grid);
-                if((*world_grid)[tile[0]][tile[1]][tile[2]][tile[3]] != BLOCKS_ID.VOID){
-                    (*world_grid)[tile[0]][tile[1]][tile[2]][tile[3]] = BLOCKS_ID.VOID;
-                }
-            }else if((*mouse_state) & SDL_BUTTON(SDL_BUTTON_RIGHT)){
-                std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,*world_grid);
-                if((*world_grid)[tile[0]][tile[1]][tile[2]][tile[3]] == BLOCKS_ID.VOID){
-                    (*world_grid)[tile[0]][tile[1]][tile[2]][tile[3]] = BLOCKS_ID.STONE;
+                std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,wld->grid);
+                if((wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]].id != BLOCKS_ID.VOID){
+                    (wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]] = Block(BLOCKS_ID.VOID);
                 }
             }
             hspd = (keyboard_state[SDL_SCANCODE_D]-keyboard_state[SDL_SCANCODE_A])*spd;
-            if(colliding_world({rect.x,rect.y+1,rect.w,rect.h},*world_grid)){
+            if(colliding_world({rect.x,rect.y+1,rect.w,rect.h},wld->grid)){
                 vspd = 0;
                 if(keyboard_state[SDL_SCANCODE_SPACE]){
                     vspd -= 16;
@@ -52,22 +57,22 @@ class Player:Entity{
                 vspd++;
             }
             if(hspd != 0){
-                bool x = colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h},*world_grid);
-                bool y = !colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h/2},*world_grid);
-                bool z = !colliding_world({rect.x+sign(hspd),rect.y-tile_size,rect.w,rect.h},*world_grid);
+                bool x = colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h},wld->grid);
+                bool y = !colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h/2},wld->grid);
+                bool z = !colliding_world({rect.x+sign(hspd),rect.y-tile_size,rect.w,rect.h},wld->grid);
                 if(x & y & z){
                     rect.y-=tile_size;
                 }
             }
-            if(colliding_world({rect.x+hspd,rect.y,rect.w,rect.h},*world_grid)) {
-                while(!colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h},*world_grid)){
+            if(colliding_world({rect.x+hspd,rect.y,rect.w,rect.h},wld->grid)) {
+                while(!colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h},wld->grid)){
                     rect.x += sign(hspd);
                 }
                 hspd = 0;
             }
             rect.x += hspd;
-            if(colliding_world({rect.x,rect.y+vspd,rect.w,rect.h},*world_grid)) {
-                while(!colliding_world({rect.x,rect.y+sign(vspd),rect.w,rect.h},*world_grid)){
+            if(colliding_world({rect.x,rect.y+vspd,rect.w,rect.h},wld->grid)) {
+                while(!colliding_world({rect.x,rect.y+sign(vspd),rect.w,rect.h},wld->grid)){
                     rect.y += sign(vspd);
                 }
                 vspd = 0;
