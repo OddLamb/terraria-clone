@@ -11,27 +11,17 @@ class Player:Entity{
         int hspd = 0;
         int vspd = 0;
         int spd = 4;
-        Uint32 *mouse_state;
         const Uint8 *keyboard_state;
+        Uint32 mouse_state;
+        int mouse_x;
+        int mouse_y;
         SDL_Event *event;
-        int *mouse_x = 0;
-        int *mouse_y = 0;
-        Player(int *_camx,int *_camy,World *_wld,SDL_Renderer *_renderer, const Uint8 *_keyboard_state,Uint32 *_mouse_state,int *_mouse_x, int *_mouse_y):
-        Entity(_camx,_camy,_wld,_renderer){
-            keyboard_state = _keyboard_state;
-            mouse_state = _mouse_state;
-            mouse_x = _mouse_x;
-            mouse_y = _mouse_y;
-        }
+        Player(int *_camx,int *_camy,World *_wld,SDL_Renderer *_renderer):
+        Entity(_camx,_camy,_wld,_renderer){};
         void handle_events(SDL_Event *event){
             switch(event->type){
                 case SDL_MOUSEBUTTONDOWN:
-                    if(SDL_BUTTON(SDL_BUTTON_RIGHT)){
-                        std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,wld->grid);
-                        if((wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]].id == BLOCKS_ID.VOID){
-                            (wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]] = Block(BLOCKS_ID.WATER);
-                        }
-                    }
+                    
                     break;
             }
         }
@@ -40,23 +30,29 @@ class Player:Entity{
             SDL_Rect _rect = {rect.x-*camx,rect.y-*camy,rect.w,rect.h};
             SDL_RenderFillRect(renderer,&_rect);
         }
-        void update(){
-            if((*mouse_state) & SDL_BUTTON(SDL_BUTTON_LEFT)){
-                std::vector<int> tile = tile_at_point(*mouse_x+*camx,*mouse_y+*camy,wld->grid);
-                if((wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]].id != BLOCKS_ID.VOID){
-                    (wld->grid)[tile[0]][tile[1]][tile[2]][tile[3]] = Block(BLOCKS_ID.VOID);
+        void update(float deltaTime) override{
+            keyboard_state = SDL_GetKeyboardState(NULL);
+            mouse_state = SDL_GetMouseState(&mouse_x,&mouse_y);
+            if(mouse_state){
+                std::vector<int> tile_pos = tile_at_point(*camx+mouse_x,*camy+mouse_y,wld->grid);
+                Block &tile = wld->grid[tile_pos[0]][tile_pos[1]][tile_pos[2]][tile_pos[3]];
+                if(mouse_state & SDL_BUTTON(SDL_BUTTON_RIGHT) && tile.id == BLOCKS_ID.VOID){
+                    tile = Block(BLOCKS_ID.STONE);
+                }
+                if(mouse_state & SDL_BUTTON(SDL_BUTTON_LEFT) && tile.id != BLOCKS_ID.VOID){
+                    tile = Block(BLOCKS_ID.VOID);
                 }
             }
-            hspd = (keyboard_state[SDL_SCANCODE_D]-keyboard_state[SDL_SCANCODE_A])*spd;
+            hspd = ((keyboard_state[SDL_SCANCODE_D]-keyboard_state[SDL_SCANCODE_A])*spd)*deltaTime;
             if(colliding_world({rect.x,rect.y+1,rect.w,rect.h},wld->grid)){
                 vspd = 0;
                 if(keyboard_state[SDL_SCANCODE_SPACE]){
-                    vspd -= 16;
+                    vspd -= 10*deltaTime;
                 }
             }else{
-                vspd++;
+                vspd+=deltaTime;
             }
-            if(hspd != 0){
+            if(hspd != 0 & vspd == 0){
                 bool x = colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h},wld->grid);
                 bool y = !colliding_world({rect.x+sign(hspd),rect.y,rect.w,rect.h/2},wld->grid);
                 bool z = !colliding_world({rect.x+sign(hspd),rect.y-tile_size,rect.w,rect.h},wld->grid);

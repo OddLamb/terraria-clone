@@ -4,16 +4,20 @@
 #include <SDL2/SDL_image.h>
 #include <iostream>
 
-SDL_Texture* loadTexture(const std::string& path, SDL_Renderer* renderer) {
-    SDL_Surface* tempSurface = IMG_Load(path.c_str());
-    
-    if (!tempSurface) {
+SDL_Texture* loadTexture(const char* path, SDL_Renderer* renderer) {
+    SDL_Surface* surface = IMG_Load(path);
+    if (!surface) {
+        std::cerr << "Error loading image: " << IMG_GetError() << std::endl;
         return nullptr;
     }
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, tempSurface);
-    SDL_FreeSurface(tempSurface);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!texture) {
+        std::cerr << "Error creating texture: " << SDL_GetError() << std::endl;
+    }
     return texture;
 }
+
 
 class SpriteSheet {
 private:
@@ -54,7 +58,7 @@ public:
         dstRect.h = hei;
 
         SDL_SetTextureColorMod(texture, r, g, b);
-        SDL_RenderCopyEx(renderer, texture, &srcRect, &dstRect, angle, NULL, flip);
+        SDL_RenderCopyEx(renderer, texture, &srcRect, &dstRect, angle * 180/M_PI, NULL, flip);
         SDL_SetTextureColorMod(texture, 255, 255, 255); 
     }
     int getFrameWidth() const { return frameWidth; }

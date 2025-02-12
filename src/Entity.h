@@ -16,6 +16,9 @@ class Entity{
       wld = _wld;
       renderer = _renderer;
     }
+    virtual void update(float deltaTime){
+
+    }
     virtual ~Entity() = default;  
 };
 

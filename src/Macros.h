@@ -11,15 +11,19 @@ constexpr struct {
     int STONE = 2;
     int WATER = 3;
 } BLOCKS_ID;
-constexpr int BLOCK_MAX_LIFE = 10;
+struct {
+    std::string DAYTIME_THEME = "./assets/tracks/forest-day.mp3";
+    std::string NIGHTTIME_THEME = "./assets/tracks/forest-night.mp3";
+} MUSIC_PATHS;
+
 struct Block {
     int id;
     int light;
     bool solid;
     int tile;
     int tick;
-    int timer = 3;
-    int life = BLOCK_MAX_LIFE;
+    int timer = 6;
+    int life = 10;
     constexpr Block(int _id = -1, int _light = 255,bool _solid = true,int _tile = 0,int _tick = 0): 
                     id(_id), light(_light), solid(_solid),tile(_tile),tick(_tick){
         if(id == BLOCKS_ID.VOID || id == BLOCKS_ID.WATER){
@@ -35,13 +39,13 @@ typedef std::vector<std::vector<Block>> wall_chunk;
 typedef std::vector<std::vector<wall_chunk>> wall_world;
 const int window_resolution[2] = {1024,640};
 
-const int tile_size = 20;
+const int tile_size = 15;
 
-const int chunk_wid = 64;
-const int chunk_hei = 64;
+const int chunk_wid = 32;
+const int chunk_hei = 32;
 
-const int world_wid = 4;
-const int world_hei = 4;
+const int world_wid = 6;
+const int world_hei = 6;
 
 const int framerate = 60;
 const int frame_delay = 1000 / framerate;
@@ -129,16 +133,16 @@ std::vector<int> tile_at_point(int px, int py, world world_grid) {
     int chunk_x = px / (chunk_wid * tile_size);
     int chunk_y = py / (chunk_hei * tile_size);
 
-    if (chunk_x < 0 || chunk_x >= world_grid.size() || 
-        chunk_y < 0 || chunk_y >= world_grid[chunk_x].size()) {
+    if (chunk_x < 0 || chunk_x >= world_wid || 
+        chunk_y < 0 || chunk_y >= world_hei) {
         return {0, 0, 0, 0}; 
     }
 
     int local_x = (px % (chunk_wid * tile_size)) / tile_size;
     int local_y = (py % (chunk_hei * tile_size)) / tile_size;
 
-    if (local_x >= 0 && local_x < world_grid[chunk_x][chunk_y].size() &&
-        local_y >= 0 && local_y < world_grid[chunk_x][chunk_y][local_x].size()) {
+    if (local_x >= 0 && local_x < chunk_wid &&
+        local_y >= 0 && local_y < chunk_hei) {
         return {chunk_x, chunk_y, local_x, local_y};
     }
 

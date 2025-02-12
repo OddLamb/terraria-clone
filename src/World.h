@@ -1,6 +1,7 @@
 #ifndef WORLD_H
 #define WORLD_H
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -9,12 +10,34 @@
 #include "SpriteSheet.h"
 
 class World{
-    SDL_Renderer *renderer;
-    int *camx;
-    int *camy; 
-    std::vector<SpriteSheet*> TileSetList;
+    private:
+        SDL_Renderer *renderer;
+        int *camx;
+        int *camy; 
+        std::vector<SpriteSheet*> TileSetList;
+        SpriteSheet *sprMoon;
+        SpriteSheet *sprSun;
+        double angle = 0;
+        double calculateAngle() {
+            int hours = timer[2];  
+            int minutes = timer[1]; 
+            int seconds = timer[0]; 
+
+            double hourAngle = (hours * (M_PI * 2) / 24) + 
+                            (minutes * (M_PI * 2) / (24 * 60)) + 
+                            (seconds * (M_PI * 2) / (24 * 60 * 60));
+
+            double angle = hourAngle; 
+
+            angle+=M_PI/2;
+            angle = fmod(angle, M_PI * 2);
+            if (angle < 0) angle += M_PI * 2;
+
+            return angle;
+        }
     public:
         world grid;
+        int timer[3] = {0,0,12};
         void init_grid(){
             grid.resize(world_wid);
             for(int x = 0;x<grid.size();x++){
@@ -125,22 +148,22 @@ class World{
             int ty = chunk_y;
             int txx = tile_x;
             int tyy = tile_y;
-            if (txx >= chunk_wid) {  // Check if txx exceeds the chunk width
-                txx = 0; // Wrap to the start of the next chunk
-                tx += 1; // Move to the next chunk
-            } else if (txx < 0) { // Check if txx is less than 0
-                txx = chunk_wid - 1; // Wrap to the end of the previous chunk
-                tx -= 1; // Move to the previous chunk
+            if (txx >= chunk_wid) { 
+                txx = 0; 
+                tx += 1; 
+            } else if (txx < 0) {
+                txx = chunk_wid - 1;
+                tx -= 1; 
             }
-            if (tyy >= chunk_hei) { // Check if tyy exceeds the chunk height
-                tyy = 0; // Wrap to the start of the next chunk
-                ty += 1; // Move to the next chunk
-            } else if (tyy < 0) { // Corrected: Check if tyy is less than 0
-                tyy = chunk_hei - 1; // Wrap to the end of the previous chunk
-                ty -= 1; // Move to the previous chunk
+            if (tyy >= chunk_hei) { 
+                tyy = 0; 
+                ty += 1;
+            } else if (tyy < 0) {
+                tyy = chunk_hei - 1; 
+                ty -= 1; 
             }
-            tx = clamp(tx,world_wid,0);
-            ty = clamp(ty,world_hei,0);
+            tx = clamp(tx,world_wid-1,0);
+            ty = clamp(ty,world_hei-1,0);
             chunk_x = tx;
             chunk_y = ty;
             tile_x = txx;
@@ -151,21 +174,28 @@ class World{
             TileSetList.push_back(new SpriteSheet(loadTexture("./assets/images/tileset-dirt.png",renderer),16,16,16));
             TileSetList.push_back(new SpriteSheet(loadTexture("./assets/images/tileset-stone.png",renderer),16,16,16));
             TileSetList.push_back(new SpriteSheet(loadTexture("./assets/images/tileset-water.png",renderer),16,16,16));
+            sprMoon = new SpriteSheet(loadTexture("./assets/images/moon.png",renderer),64,64,1);
+            sprSun = new SpriteSheet(loadTexture("./assets/images/sun.png",renderer),64,64,1);
             init_grid();
             gen_grid();
         }
-        void transfer_life(Block &from, Block &to){
-            to.life+=from.life;
-            from.life=0;
-            if(to.life > BLOCK_MAX_LIFE){
-                int excess = BLOCK_MAX_LIFE-to.life;
-                to.life -= excess;
-                from.life += excess;
-            }else{
-                from = Block(BLOCKS_ID.VOID);
-            }
-        }
         void update(){
+            angle = calculateAngle();
+            if(timer[2] >= 24){
+                timer[2] = 0;
+            }else{
+                if(timer[1] >= 60){
+                    timer[2]++;
+                    timer[1] = 0;
+                }else{
+                    if(timer[0] >= 60){
+                        timer[1]++;
+                        timer[0] = 0;
+                    }else{
+                        timer[0]++;
+                    }
+                }
+            }
             int start_chunk_x = *camx / (chunk_wid * tile_size);
             int end_chunk_x = (*camx + window_resolution[0]) / (chunk_wid * tile_size);
             int start_chunk_y = *camy / (chunk_hei * tile_size);
@@ -184,54 +214,12 @@ class World{
                         for (int y1 = start_tile_y; y1 <= end_tile_y; y1++) {
                             SDL_Rect tile_rect = {chunk_rect.x+x1*tile_size,chunk_rect.y+y1*tile_size,tile_size,tile_size};
                             if(grid[x][y][x1][y1].id != BLOCKS_ID.VOID){
-                                int bitmask = 0;
-                                // top
-                                if (y1 > 0) {
-                                    if(grid[x][y][x1][y1 - 1].id != BLOCKS_ID.VOID){
-                                        bitmask |= 1;
-                                    }
-                                }else if(y > 0){
-                                    if(grid[x][y-1][x1][chunk_hei-1].id != BLOCKS_ID.VOID){
-                                        bitmask |= 1;
-                                    }
-                                }   
-                                // right
-                                if (x1 + 1 < chunk_wid) { 
-                                    if(grid[x][y][x1 + 1][y1].id != BLOCKS_ID.VOID){
-                                        bitmask |= 2; 
-                                    }
-                                }else if(x + 1 < world_wid){
-                                    if(grid[x+1][y][0][y1].id != BLOCKS_ID.VOID){
-                                        bitmask |= 2; 
-                                    }
-                                }
-                                // bottom
-                                if (y1 + 1 < chunk_hei) {
-                                    if(grid[x][y][x1][y1 + 1].id != BLOCKS_ID.VOID){ 
-                                        bitmask |= 4;
-                                    }
-                                }else if(y+1 < world_hei){
-                                    if(grid[x][y+1][x1][0].id != BLOCKS_ID.VOID){ 
-                                        bitmask |= 4;
-                                    }
-                                }
-                                // left
-                                if (x1 > 0) {
-                                    if(grid[x][y][x1 - 1][y1].id != BLOCKS_ID.VOID){ 
-                                        bitmask |= 8; 
-                                    }
-                                }else if(x > 0){
-                                    if(grid[x - 1][y][chunk_wid-1][y1].id != BLOCKS_ID.VOID){ 
-                                        bitmask |= 8; 
-                                    }
-                                }
-                                grid[x][y][x1][y1].tile = bitmask;
                                 std::vector<int> dist_list;
                                 for(int l = 1;l<=LEN_LIGHT;l++){
-                                    for(int j = 1;j<=DIR_LIGHT*l;j++){
+                                    for(int j = 1;j<=DIR_LIGHT;j++){
                                         int tx = x;
                                         int ty = y;
-                                        double radian = j * (M_PI * 2) / (DIR_LIGHT*l);
+                                        double radian = j * (M_PI * 2) / (DIR_LIGHT);
                                         
                                         int txx = x1 + (std::round(std::cos(radian) * l));
                                         int tyy = y1 + (std::round(std::sin(radian) * l));
@@ -256,6 +244,52 @@ class World{
                                 }else{
                                     grid[x][y][x1][y1].tick = grid[x][y][x1][y1].timer;
                                 }
+                                if(grid[x][y][x1][y1].light > 0){
+                                    int bitmask = 0;
+                                    // top
+                                    if (y1 > 0) {
+                                        if(grid[x][y][x1][y1 - 1].id != BLOCKS_ID.VOID){
+                                            bitmask |= 1;
+                                        }
+                                    }else if(y > 0){
+                                        if(grid[x][y-1][x1][chunk_hei-1].id != BLOCKS_ID.VOID){
+                                            bitmask |= 1;
+                                        }
+                                    }   
+                                    // right
+                                    if (x1 + 1 < chunk_wid) { 
+                                        if(grid[x][y][x1 + 1][y1].id != BLOCKS_ID.VOID){
+                                            bitmask |= 2; 
+                                        }
+                                    }else if(x + 1 < world_wid){
+                                        if(grid[x+1][y][0][y1].id != BLOCKS_ID.VOID){
+                                            bitmask |= 2; 
+                                        }
+                                    }
+                                    // bottom
+                                    if (y1 + 1 < chunk_hei) {
+                                        if(grid[x][y][x1][y1 + 1].id != BLOCKS_ID.VOID){ 
+                                            bitmask |= 4;
+                                        }
+                                    }else if(y+1 < world_hei){
+                                        if(grid[x][y+1][x1][0].id != BLOCKS_ID.VOID){ 
+                                            bitmask |= 4;
+                                        }
+                                    }
+                                    // left
+                                    if (x1 > 0) {
+                                        if(grid[x][y][x1 - 1][y1].id != BLOCKS_ID.VOID){ 
+                                            bitmask |= 8; 
+                                        }
+                                    }else if(x > 0){
+                                        if(grid[x - 1][y][chunk_wid-1][y1].id != BLOCKS_ID.VOID){ 
+                                            bitmask |= 8; 
+                                        }
+                                    }
+                                    grid[x][y][x1][y1].tile = bitmask;
+                                }else{
+                                    grid[x][y][x1][y1].tile = 11;
+                                }
                                 if (grid[x][y][x1][y1].id == BLOCKS_ID.WATER && grid[x][y][x1][y1].tick == 0) {
                                     Block &water_tile = grid[x][y][x1][y1];
                                     int dtx = x;
@@ -268,9 +302,7 @@ class World{
                                     if(block_down.id == BLOCKS_ID.VOID){
                                         block_down = water_tile;
                                         water_tile = Block(BLOCKS_ID.VOID);
-                                    }else if(block_down.id == BLOCKS_ID.WATER && block_down.life < BLOCK_MAX_LIFE){
-                                        transfer_life(water_tile,block_down);
-                                    }else if(water_tile.life > 2){
+                                    }else{
                                         int ltx = x;
                                         int ltxx = x1-1;
                                         int rtx = x;
@@ -279,18 +311,25 @@ class World{
                                         convert_pos(rtx,y,rtxx,y1);
                                         Block &left_tile = grid[ltx][y][ltxx][y1];
                                         Block &right_tile = grid[rtx][y][rtxx][y1];
-                                        if(left_tile.id == BLOCKS_ID.VOID){ // if can go left
-                                            left_tile = Block(BLOCKS_ID.WATER);
-                                            left_tile.life = water_tile.life-2;
-                                        }else if(left_tile.id == BLOCKS_ID.WATER){
-                                            transfer_life(water_tile,left_tile);
+                                        if(left_tile.id == BLOCKS_ID.VOID && right_tile.id == BLOCKS_ID.VOID){
+                                            int dir = random_range(0,1);
+                                            if(dir){
+                                                left_tile = water_tile;
+                                                water_tile = Block(BLOCKS_ID.VOID);
+                                            }else{
+                                                right_tile = water_tile;
+                                                water_tile = Block(BLOCKS_ID.VOID);
+                                            }
+                                        }else{
+                                            if(left_tile.id == BLOCKS_ID.VOID){ // if can go left
+                                                left_tile = water_tile;
+                                                water_tile = Block(BLOCKS_ID.VOID);
+                                            }
+                                            if(right_tile.id == BLOCKS_ID.VOID){ // if can go right
+                                                right_tile = water_tile;
+                                                water_tile = Block(BLOCKS_ID.VOID);
+                                            }
                                         }
-                                        if(right_tile.id == BLOCKS_ID.VOID){ // if can go right
-                                            right_tile = Block(BLOCKS_ID.WATER);
-                                            right_tile.life = water_tile.life-2;
-                                        }else if(right_tile.id == BLOCKS_ID.WATER){
-                                            transfer_life(water_tile,right_tile);
-                                        }    
                                     }
                                 }
                             }
@@ -300,8 +339,15 @@ class World{
             }
         }
         void draw(){
+            int x1 = ((window_resolution[0]/2)-32)+(cos(angle)*((window_resolution[0]/2)-64));
+            int y1 = (window_resolution[1]/2)+(sin(angle)*((window_resolution[1]/2)-64));
             
-            update();
+            sprSun->renderFrame(renderer,0,x1,y1,64,64,angle);
+            
+            int x2 = ((window_resolution[0]/2)-32)+(cos(angle+M_PI)*((window_resolution[0]/2)-64));
+            int y2 = (window_resolution[1]/2)+(sin(angle+M_PI)*((window_resolution[1]/2)-64));
+            sprMoon->renderFrame(renderer,0,x2,y2,64,64,angle);
+
             int start_chunk_x = *camx / (chunk_wid * tile_size);
             int end_chunk_x = (*camx + window_resolution[0]) / (chunk_wid * tile_size);
             int start_chunk_y = *camy / (chunk_hei * tile_size);
@@ -316,10 +362,9 @@ class World{
                     int start_tile_y = std::max(0, (*camy - (y * chunk_hei * tile_size)) / tile_size);
                     int end_tile_y = std::min(chunk_hei - 1, (*camy + window_resolution[1] - (y * chunk_hei * tile_size)) / tile_size);
                     
-                    // Loop through visible tiles within the chunk
                     for (int x1 = start_tile_x; x1 <= end_tile_x; x1++) {
                         for (int y1 = start_tile_y; y1 <= end_tile_y; y1++) {
-                            SDL_Rect tile_rect = {chunk_rect.x+x1*tile_size,chunk_rect.y+y1*tile_size,tile_size,(grid[x][y][x1][y1].life * tile_size) / BLOCK_MAX_LIFE};                    
+                            SDL_Rect tile_rect = {chunk_rect.x+x1*tile_size,chunk_rect.y+y1*tile_size,tile_size,tile_size};                    
                             tile_rect.y-=(tile_rect.h-tile_size);
                             if(grid[x][y][x1][y1].id != BLOCKS_ID.VOID){
                                 TileSetList[grid[x][y][x1][y1].id]->renderFrame(renderer,grid[x][y][x1][y1].tile,tile_rect.x,tile_rect.y,tile_rect.w,tile_rect.h,0,SDL_FLIP_NONE,grid[x][y][x1][y1].light,grid[x][y][x1][y1].light,grid[x][y][x1][y1].light);
@@ -327,6 +372,11 @@ class World{
                         }
                     }
                 }
+            }
+        }
+        void destroy(){
+            for(int i = 0;i<TileSetList.size();i++){
+                delete TileSetList[i];
             }
         }
     
