@@ -3,15 +3,16 @@
 #include <random>
 #include <vector>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
-constexpr struct {
-    int VOID = -1;
-    int GRASS = 0;
-    int DIRT = 1;
-    int STONE = 2;
-    int WATER = 3;
-} BLOCKS_ID;
-struct {
+enum BLOCK_ID{
+    VOID,
+    GRASS,
+    DIRT,
+    STONE,
+    WATER,
+};
+const struct{
     std::string DAYTIME_THEME = "./assets/tracks/forest-day.mp3";
     std::string NIGHTTIME_THEME = "./assets/tracks/forest-night.mp3";
 } MUSIC_PATHS;
@@ -23,34 +24,45 @@ struct Block {
     int tile;
     int tick;
     int timer = 6;
-    int life = 10;
-    constexpr Block(int _id = -1, int _light = 255,bool _solid = true,int _tile = 0,int _tick = 0): 
+    constexpr Block(int _id = -1, int _light = 0,bool _solid = true,int _tile = 0,int _tick = 0): 
                     id(_id), light(_light), solid(_solid),tile(_tile),tick(_tick){
-        if(id == BLOCKS_ID.VOID || id == BLOCKS_ID.WATER){
+        if(id == BLOCK_ID::VOID || id == BLOCK_ID::WATER){
             solid = false;
         }
     }
 };
+struct Item{
 
+};
+const int inv_wid = 6;
+const int inv_hei = 4;
 typedef std::vector<std::vector<Block>> chunk;
 typedef std::vector<std::vector<chunk>> world;
+typedef std::vector<std::vector<Item>> inventory;
 
-typedef std::vector<std::vector<Block>> wall_chunk;
-typedef std::vector<std::vector<wall_chunk>> wall_world;
+int DIR_LIGHT = 8;
+int LEN_LIGHT = 4;
 const int window_resolution[2] = {1024,640};
 
-const int tile_size = 15;
+const int tile_size = 16;
 
 const int chunk_wid = 32;
 const int chunk_hei = 32;
 
-const int world_wid = 6;
-const int world_hei = 6;
+const int world_wid = 10;
+const int world_hei = 10;
 
 const int framerate = 60;
 const int frame_delay = 1000 / framerate;
-const int LEN_LIGHT = 4;
-const int DIR_LIGHT = 8;
+void draw_text(std::string text, int x, int y,SDL_Renderer *renderer,TTF_Font *font,SDL_Color fg = {0,0,0,255},SDL_Color bg = {0,0,0,0}){
+    SDL_Surface* textSurface = TTF_RenderText_Shaded(font, text.c_str(), fg,bg);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
+    SDL_Rect renderQuad = { 0, 0, textSurface->w, textSurface->h }; 
+    SDL_RenderCopy(renderer, textTexture, nullptr, &renderQuad);
+
+    SDL_FreeSurface(textSurface);
+}
 double distance(double x1, double y1, double x2, double y2) {
     return std::sqrt(std::pow((x2 - x1), 2) + std::pow((y2 - y1), 2));
 }

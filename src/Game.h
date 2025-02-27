@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
+#include <thread>
 #include "Macros.h"
 #include "Player.h"
 #include "SpriteSheet.h"
@@ -11,30 +12,31 @@
 
 class Game{
     private:
-        SDL_Window *window;
-        SDL_Renderer *renderer;
+        SDL_Window *window = nullptr;
+        SDL_Renderer *renderer = nullptr;
         SDL_Event event;
 
         bool running = true;
-        const Uint8 *keyboard_state;
+        const Uint8 *keyboard_state = nullptr;
         int mouse_x;
         int mouse_y;
         Uint32 mouse_state;
         double delta_time = 1;
         Uint32 last_time;
         Uint32 current_time;
-        Mix_Music *music;
+        Mix_Music *music = nullptr;
         std::string curr_music;
         
         int camx = 0;
         int camy = 0;
-        Player *plr;
-        World *wld;
+        std::vector<Entity*> EntityList; 
+        World *wld = nullptr;
 
-        TTF_Font *Sans;
+        TTF_Font *Sans = nullptr;
         float sky_color[3] = {0.0f,0.0f,0.0f};
+        Entity *camTarget;
         void draw(){
-            if(wld->timer[2] > 6 && wld->timer[2] < 17){
+            if(wld->isDay()){
                 sky_color[0] = lerp(sky_color[0],200,.01);
                 sky_color[1] = lerp(sky_color[1],205,.01);
                 sky_color[2] = lerp(sky_color[2],255,.01);
@@ -47,19 +49,9 @@ class Game{
             SDL_RenderClear(renderer);
 
             wld->draw();
-            plr->draw();
-            
-            
-
-            std::string text = "Time: " +std::to_string( wld->timer[2]) + ':' + std::to_string(wld->timer[1]) + ':' + std::to_string(wld->timer[0]);
-
-            SDL_Surface* textSurface = TTF_RenderText_Shaded(Sans, text.c_str(), {0,0,0,255},{255,255,255,255});
-            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-
-            SDL_FreeSurface(textSurface);
-            SDL_Rect renderQuad = { 0, 0, textSurface->w, textSurface->h }; 
-            SDL_RenderCopy(renderer, textTexture, nullptr, &renderQuad);
-
+            for(auto &entity : EntityList){
+                entity->draw();
+            }
             SDL_RenderPresent(renderer);
         }
         void handle_events(){
@@ -71,19 +63,15 @@ class Game{
                     case SDL_KEYDOWN:
                         switch(event.key.keysym.sym){
                             case SDLK_r:
-                                wld->init_grid();
                                 wld->gen_grid();
-                                plr->rect.y = 0;
-                                plr->rect.x = 0;
-                                wld->timer[0] = 0;
-                                wld->timer[1] = 0;
-                                wld->timer[2] = 12;
                                 break;
                         }
                         break;
 
                 }
-                plr->handle_events(&event);
+                for(auto &entity : EntityList){
+                    entity->handle_events(&event);
+                }
             }
         }
         void update(){
@@ -91,22 +79,30 @@ class Game{
             keyboard_state = SDL_GetKeyboardState(NULL);
             mouse_state = SDL_GetMouseState(&mouse_x,&mouse_y);
             
-            if(wld->timer[2] > 6 && wld->timer[2] < 17 && curr_music != MUSIC_PATHS.DAYTIME_THEME){
+            if(wld->isDay() && curr_music != MUSIC_PATHS.DAYTIME_THEME){
+                if (music) Mix_FreeMusic(music);
                 music = Mix_LoadMUS(MUSIC_PATHS.DAYTIME_THEME.c_str());
                 Mix_PlayMusic(music,-1);
                 curr_music = MUSIC_PATHS.DAYTIME_THEME;
-
-            }else if((wld->timer[2] > 17 || wld->timer[2] < 6) && curr_music != MUSIC_PATHS.NIGHTTIME_THEME){
+            }else if(wld->isNight() && curr_music != MUSIC_PATHS.NIGHTTIME_THEME){
+                if (music) Mix_FreeMusic(music);
                 music = Mix_LoadMUS(MUSIC_PATHS.NIGHTTIME_THEME.c_str());
                 Mix_PlayMusic(music,-1);
                 curr_music = MUSIC_PATHS.NIGHTTIME_THEME;
             }
             
-            wld->update();
-            plr->update(delta_time);
+            std::thread WorldThread(&World::update, wld);
+            WorldThread.detach();
 
-            camx = lerp(camx,plr->rect.x-(window_resolution[0]/2),.1);
-            camy = lerp(camy,plr->rect.y-(window_resolution[1]/2),.1);
+            for(auto &entity : EntityList){
+                entity->update(delta_time);
+            }
+            if(keyboard_state[SDL_SCANCODE_E]){
+                wld->timer[1]+=6;
+            }
+            
+            camx = lerp(camx,camTarget->rect.x-(window_resolution[0]/2),.1);
+            camy = lerp(camy,camTarget->rect.y-(window_resolution[1]/2),.1);
             camx = clamp(camx,world_wid*(chunk_wid*tile_size)-window_resolution[0],0);
             camy = clamp(camy,world_hei*(chunk_hei*tile_size)-window_resolution[1],0);
         }
@@ -118,6 +114,7 @@ class Game{
             Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096);
         
             window = SDL_CreateWindow("Made by Asaf Amithiel",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,window_resolution[0],window_resolution[1],0);
+            
             if(!window){
                 std::cout << "Error initializing window: " << SDL_GetError() << "\n";
             }
@@ -132,9 +129,13 @@ class Game{
             music = Mix_LoadMUS("./assets/tracks/forest-day.mp3");
             
             wld = new World(renderer,&camx,&camy);
-            plr = new Player(&camx,&camy,wld,renderer);
-            camx = plr->rect.x-window_resolution[0]/2;
-            camy = plr->rect.y-window_resolution[1]/2;
+            int middle_world = std::round(world_wid/2);
+            int middle_chunk = std::round(chunk_wid/2);
+            
+            EntityList.push_back(new Player(&camx,&camy,wld,renderer));
+            camTarget = EntityList.back();
+            camx = camTarget->rect.x-window_resolution[0]/2;
+            camy = camTarget->rect.y-window_resolution[1]/2;
         }
         void run(){
             last_time = SDL_GetPerformanceCounter();
@@ -157,7 +158,10 @@ class Game{
         }
         void destroy(){
             wld->destroy();
-            delete plr;
+            for(auto &entity : EntityList){
+                entity->destroy();
+                delete entity;
+            }
             delete wld;
             
             TTF_Quit();

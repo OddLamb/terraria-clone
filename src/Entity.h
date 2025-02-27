@@ -6,10 +6,11 @@
 
 class Entity{
   public:
-    int *camx = 0;
-    int *camy = 0;
-    SDL_Renderer *renderer;
-    World *wld;
+    SDL_Rect rect = {0,0,0,0};
+    int *camx = nullptr;
+    int *camy = nullptr;
+    SDL_Renderer *renderer = nullptr;
+    World *wld = nullptr;
     Entity(int *_camx, int *_camy,World *_wld,SDL_Renderer *_renderer){
       camx = _camx;
       camy = _camy;
@@ -17,6 +18,15 @@ class Entity{
       renderer = _renderer;
     }
     virtual void update(float deltaTime){
+
+    }
+    virtual void draw(){
+
+    }
+    virtual void handle_events(SDL_Event *event){
+
+    }
+    virtual void destroy(){
 
     }
     virtual ~Entity() = default;  
